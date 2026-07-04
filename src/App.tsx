@@ -1123,17 +1123,6 @@ export default function App() {
                 
                 <div className="glass-card rounded-2xl p-6 relative z-10 shadow-xl border border-white/50 bg-white/90">
                   
-                  {!isSupabaseConfigured && (
-                    <div className="mb-5 p-3.5 rounded-xl bg-amber-50/90 border border-amber-200 text-[#7a4b00] text-xs leading-relaxed flex gap-2.5 relative overflow-hidden shadow-sm">
-                      <div className="absolute top-0 left-0 h-full w-1 bg-amber-500"></div>
-                      <span className="material-symbols-outlined text-lg text-amber-600 shrink-0 select-none">info</span>
-                      <div>
-                        <strong className="font-bold block mb-0.5 text-amber-800">Offline Demo Mode</strong>
-                        Supabase secrets are not configured in AI Studio. The app is running in a fully functional local-only sandbox. You can click <strong>Demo Student/Teacher/Admin</strong> below to try it out instantly!
-                      </div>
-                    </div>
-                  )}
-
                   {/* Auth Tabs Header */}
                   {authTab !== 'waiting' && (
                     <div className="flex border-b border-surface-variant mb-6">
