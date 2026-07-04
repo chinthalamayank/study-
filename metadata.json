@@ -1,0 +1,6 @@
+{
+  "name": "Study Odyssey",
+  "description": "NCERT Class 9 Revision platform with visual progress tracking, interactive quizzes, customized study notes, achievements, and student management features.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+@theme {
+  --color-surface-white: #FFFFFF;
+  --color-primary-container: #0f4c81;
+  --color-surface-bright: #f7f9fb;
+  --color-on-tertiary: #ffffff;
+  --color-text-main: #1E293B;
+  --color-on-primary: #ffffff;
+  --color-on-tertiary-fixed: #2c1600;
+  --color-secondary-fixed-dim: #78dc77;
+  --color-error: #ba1a1a;
+  --color-primary-fixed-dim: #a0c9ff;
+  --color-tertiary-fixed-dim: #ffb870;
+  --color-on-secondary: #ffffff;
+  --color-background: #f7f9fb;
+  --color-biology-leaf-green: #4CAF50;
+  --color-surface: #f7f9fb;
+  --color-surface-variant: #e0e3e5;
+  --color-on-tertiary-fixed-variant: #693c00;
+  --color-secondary-container: #91f78e;
+  --color-surface-container-low: #f2f4f6;
+  --color-on-primary-container: #8ebdf9;
+  --color-inverse-on-surface: #eff1f3;
+  --color-surface-tint: #2d6197;
+  --color-tertiary: #4e2b00;
+  --color-tertiary-container: #6e3f00;
+  --color-on-tertiary-container: #ffa643;
+  --color-inverse-primary: #a0c9ff;
+  --color-error-container: #ffdad6;
+  --color-on-secondary-fixed: #002204;
+  --color-secondary: #006e1c;
+  --color-on-secondary-fixed-variant: #005313;
+  --color-text-muted: #64748B;
+  --color-primary-fixed: #d2e4ff;
+  --color-outline-variant: #c2c7d1;
+  --color-outline: #727780;
+  --color-on-surface: #191c1e;
+  --color-on-background: #191c1e;
+  --color-surface-container-highest: #e0e3e5;
+  --color-on-primary-fixed-variant: #07497d;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-dim: #d8dadc;
+  --color-secondary-fixed: #94f990;
+  --color-tertiary-fixed: #ffdcbe;
+  --color-on-secondary-container: #00731e;
+  --color-error-rose: #F43F5E;
+  --color-primary: #00355f;
+  --color-surface-container: #eceef0;
+  --color-chemistry-amber: #FF9800;
+  --color-on-error: #ffffff;
+  --color-surface-container-high: #e6e8ea;
+  --color-on-error-container: #93000a;
+  --color-on-primary-fixed: #001c37;
+  --color-inverse-surface: #2d3133;
+  --color-on-surface-variant: #42474f;
+  --color-success-emerald: #10B981;
+  --color-physics-deep-blue: #0F4C81;
+
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-hanken: "Hanken Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+@layer utilities {
+  .glass-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 32px rgba(15, 76, 129, 0.08);
+  }
+  .pattern-bg {
+    background-color: #f7f9fb;
+    background-image: radial-gradient(#e0e3e5 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+  }
+}
+
+/* Custom material icon helper mapping */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'liga';
+}
+
+/* Animations */
+@keyframes confetti-fall {
+  0% { transform: translateY(-10vh) scale(1) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) scale(0.5) rotate(720deg); opacity: 0; }
+}
+
+.confetti {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: confetti-fall 2.5s cubic-bezier(.37,0,.63,1) forwards;
+}
