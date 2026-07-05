@@ -18,6 +18,8 @@ import {
   Menu, 
   Lock, 
   Clock, 
+  Sun,
+  Moon, 
   Info, 
   ChevronLeft, 
   MoreVertical, 
@@ -361,6 +363,21 @@ export default function App() {
   // Mobile navigation drawer toggle
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   
+  // Night theme state
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    return localStorage.getItem('so_night_mode') === 'true';
+  });
+
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('so_night_mode', 'true');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('so_night_mode', 'false');
+    }
+  }, [isDark]);
+  
   // Search state in header (filters active content depending on current tab!)
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -454,8 +471,12 @@ export default function App() {
           return;
         }
         
-        const expectedPassword = found.email.split('@')[0].toLowerCase();
-        if (passwordToVerify.toLowerCase() !== expectedPassword && passwordToVerify !== 'admin') {
+        const hasCustomPassword = !!found.password;
+        const isMatch = hasCustomPassword 
+          ? passwordToVerify === found.password 
+          : (passwordToVerify.toLowerCase() === found.email.split('@')[0].toLowerCase() || passwordToVerify === 'admin');
+
+        if (!isMatch) {
           setLoginError('Incorrect password. Please try again.');
           return;
         }
@@ -494,7 +515,7 @@ export default function App() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!signUpName || !signUpEmail || !signUpInstitution || (!isSupabaseConfigured ? false : !signUpPassword)) {
+    if (!signUpName || !signUpEmail || !signUpInstitution || !signUpPassword) {
       triggerToast('Please fill out all fields.');
       return;
     }
@@ -505,6 +526,7 @@ export default function App() {
         id: 'req_' + Date.now(),
         name: signUpName,
         email: signUpEmail,
+        password: signUpPassword,
         institution: signUpInstitution,
         classGroup: signUpGroup,
         submittedAt: new Date().toLocaleString(),
@@ -594,6 +616,7 @@ export default function App() {
         id: 'usr_' + Date.now(),
         name: req.name,
         email: req.email,
+        password: req.password,
         role: 'student',
         status: 'Active',
         joinedDate: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
@@ -1070,6 +1093,15 @@ export default function App() {
                 <p className="font-mono text-[11px] text-text-muted mt-1 uppercase tracking-widest">NCERT Class 9 Revision</p>
               </div>
             </div>
+
+            {/* Night Theme Toggle */}
+            <button 
+              onClick={() => setIsDark(!isDark)}
+              className="p-2.5 rounded-full bg-white/80 dark:bg-slate-800 shadow-sm hover:shadow transition-all text-text-main hover:text-physics-deep-blue border border-outline-variant/10 active:scale-95 z-50"
+              title={isDark ? "Switch to Light Theme" : "Switch to Night Theme"}
+            >
+              {isDark ? <Sun className="w-5 h-5 text-chemistry-amber" /> : <Moon className="w-5 h-5 text-physics-deep-blue" />}
+            </button>
           </header>
 
           {/* Main Hero and Forms */}
@@ -1381,6 +1413,15 @@ export default function App() {
 
             {/* Header Right Actions */}
             <div className="flex items-center gap-3">
+              {/* Night Theme Toggle */}
+              <button 
+                onClick={() => setIsDark(!isDark)}
+                className="p-2 rounded-full hover:bg-surface-container-low transition-colors text-text-muted hover:text-physics-deep-blue relative"
+                title={isDark ? "Switch to Light Theme" : "Switch to Night Theme"}
+              >
+                {isDark ? <Sun className="w-5 h-5 text-chemistry-amber" /> : <Moon className="w-5 h-5" />}
+              </button>
+
               {/* Help Center Shortcut */}
               <button 
                 onClick={() => setShowHelp(true)}
@@ -1469,9 +1510,8 @@ export default function App() {
             
             {/* ----------------- Side Navigation Bar ----------------- */}
             {/* Responsive Sidebar for desktop and mobile */}
-            <aside className={`w-64 flex flex-col py-6 bg-surface border-r border-outline-variant shrink-0 z-30 transition-transform duration-300
-              ${isMobileNavOpen ? 'translate-x-0 fixed left-0 top-16 h-[calc(100vh-64px)]' : '-translate-x-full md:translate-x-0'} 
-              md:static md:h-auto md:block bg-[#f7f9fb]`}
+            <aside className={`w-64 flex-col py-6 bg-surface border-r border-outline-variant shrink-0 z-30 transition-transform duration-300 bg-[#f7f9fb]
+              ${isMobileNavOpen ? 'flex fixed left-0 top-16 h-[calc(100vh-64px)] translate-x-0' : 'hidden md:flex md:static md:translate-x-0'}`}
             >
               <div className="flex-1 px-3 space-y-1">
                 <button 

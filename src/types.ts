@@ -2,6 +2,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  password?: string;
   role: 'student' | 'teacher' | 'admin';
   institution?: string;
   classGroup?: string;
@@ -36,6 +37,7 @@ export interface RegistrationRequest {
   id: string;
   name: string;
   email: string;
+  password?: string;
   institution: string;
   classGroup: string;
   submittedAt: string;
