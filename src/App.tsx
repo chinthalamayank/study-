@@ -325,9 +325,52 @@ export default function App() {
     setLoading(false);
   };
 
+  const syncStateToServer = async (updatedUsers: User[], updatedRequests: RegistrationRequest[]) => {
+    if (isSupabaseConfigured) return;
+    try {
+      await fetch('/api/shared-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ users: updatedUsers, requests: updatedRequests })
+      });
+    } catch (err) {
+      console.error('Error syncing state to server:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (isSupabaseConfigured) return;
+    const interval = setInterval(() => {
+      fetch('/api/shared-state')
+        .then(res => res.json())
+        .then(data => {
+          if (data && (data.users?.length > 0 || data.requests?.length > 0)) {
+            setUsers(prev => JSON.stringify(prev) !== JSON.stringify(data.users) ? data.users : prev);
+            setRequests(prev => JSON.stringify(prev) !== JSON.stringify(data.requests) ? data.requests : prev);
+          }
+        })
+        .catch(err => console.error('Error polling shared state:', err));
+    }, 5000); // Poll every 5 seconds
+    return () => clearInterval(interval);
+  }, [isSupabaseConfigured]);
+
   useEffect(() => {
     if (!isSupabaseConfigured) {
-      setLoading(false);
+      setLoading(true);
+      fetch('/api/shared-state')
+        .then(res => res.json())
+        .then(data => {
+          if (data && (data.users?.length > 0 || data.requests?.length > 0)) {
+            setUsers(data.users || []);
+            setRequests(data.requests || []);
+            localStorage.setItem('so_users_v3', JSON.stringify(data.users || []));
+            localStorage.setItem('so_requests_v3', JSON.stringify(data.requests || []));
+          } else {
+            syncStateToServer(users, requests);
+          }
+        })
+        .catch(err => console.error('Error fetching shared state:', err))
+        .finally(() => setLoading(false));
       return;
     }
 
@@ -520,14 +563,32 @@ export default function App() {
       return;
     }
 
+    // Validate original name with surname
+    const nameTrimmed = signUpName.trim();
+    const nameParts = nameTrimmed.split(/\s+/);
+    if (nameParts.length < 2 || nameParts[0].length < 2 || nameParts[1].length < 1) {
+      triggerToast('Please enter your original full name including your surname (e.g. Mayank Chinthala).');
+      return;
+    }
+
+    // Validate password: min 8 letters and a upper case letter and a lower case letter and a special character
+    const pass = signUpPassword;
+    const hasUpper = /[A-Z]/.test(pass);
+    const hasLower = /[a-z]/.test(pass);
+    const hasSpecial = /[^A-Za-z0-9]/.test(pass);
+    if (pass.length < 8 || !hasUpper || !hasLower || !hasSpecial) {
+      triggerToast('Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one special character.');
+      return;
+    }
+
     if (!isSupabaseConfigured) {
       // Local/Offline SignUp Fallback
       const newRequest: RegistrationRequest = {
         id: 'req_' + Date.now(),
-        name: signUpName,
-        email: signUpEmail,
+        name: signUpName.trim(),
+        email: signUpEmail.trim(),
         password: signUpPassword,
-        institution: signUpInstitution,
+        institution: signUpInstitution.trim(),
         classGroup: signUpGroup,
         submittedAt: new Date().toLocaleString(),
         status: 'Pending'
@@ -536,6 +597,7 @@ export default function App() {
       const updated = [newRequest, ...requests];
       setRequests(updated);
       localStorage.setItem('so_requests_v3', JSON.stringify(updated));
+      syncStateToServer(users, updated);
       setAuthTab('waiting');
       triggerToast('Registration request submitted successfully.');
       return;
@@ -641,6 +703,7 @@ export default function App() {
       setRequests(updatedRequests);
       localStorage.setItem('so_requests_v3', JSON.stringify(updatedRequests));
 
+      syncStateToServer(updatedUsers, updatedRequests);
       triggerToast(`Approved & registered ${req.name}!`);
       return;
     }
@@ -668,6 +731,7 @@ export default function App() {
       const updatedRequests = requests.map(r => r.id === reqId ? { ...r, status: 'Rejected' as const } : r);
       setRequests(updatedRequests);
       localStorage.setItem('so_requests_v3', JSON.stringify(updatedRequests));
+      syncStateToServer(users, updatedRequests);
       triggerToast('Registration request declined.');
       return;
     }
@@ -696,6 +760,7 @@ export default function App() {
       const updatedUsers = users.map(u => u.id === userId ? { ...u, status: nextStatus } : u);
       setUsers(updatedUsers);
       localStorage.setItem('so_users_v3', JSON.stringify(updatedUsers));
+      syncStateToServer(updatedUsers, requests);
       triggerToast(`User status updated to ${nextStatus}.`);
       return;
     }
@@ -725,6 +790,7 @@ export default function App() {
         const updatedUsers = users.filter(u => u.id !== userId);
         setUsers(updatedUsers);
         localStorage.setItem('so_users_v3', JSON.stringify(updatedUsers));
+        syncStateToServer(updatedUsers, requests);
         triggerToast('User account deleted.');
         return;
       }
@@ -766,6 +832,7 @@ export default function App() {
         if (resetCurrentUser) {
           localStorage.setItem('so_current_user_v3', JSON.stringify(resetCurrentUser));
         }
+        syncStateToServer(PRE_SEEDED_USERS, PRE_SEEDED_REQUESTS);
         setShowSettings(false);
         triggerToast('System mock data restored.');
         return;
@@ -806,6 +873,24 @@ export default function App() {
       score: 0,
       isMixed: false
     });
+  };
+
+  // Launch a Grand Test Exam for a subject
+  const startGrandTest = (subjectName: 'Biology' | 'Physics' | 'Chemistry') => {
+    const chapter = PRE_SEEDED_CHAPTERS.find(ch => ch.subject === subjectName);
+    if (!chapter) return;
+
+    setQuizState({
+      subject: subjectName,
+      chapterTitle: `🏆 Grand Test Exam (Comprehensive Syllabus)`,
+      questions: chapter.quizQuestions,
+      currentIndex: 0,
+      selectedIndex: null,
+      isAnswered: false,
+      score: 0,
+      isMixed: false
+    });
+    triggerToast(`Starting ${subjectName} Grand Test! 🏆 Good luck!`);
   };
 
   // Launch a mix question quiz (from quick start)
@@ -920,6 +1005,7 @@ export default function App() {
             setCurrentUser(nextCurrentUser);
             localStorage.setItem('so_current_user_v3', JSON.stringify(nextCurrentUser));
           }
+          syncStateToServer(updatedUsers, requests);
 
           if (correctPct >= 90) {
             let achievementIdToUnlock = '';
@@ -1090,7 +1176,7 @@ export default function App() {
               <span className="material-symbols-outlined text-physics-deep-blue text-4xl animate-bounce">rocket_launch</span>
               <div>
                 <h1 className="font-hanken text-2xl font-extrabold text-physics-deep-blue tracking-tight leading-none">Study Odyssey</h1>
-                <p className="font-mono text-[11px] text-text-muted mt-1 uppercase tracking-widest">NCERT Class 9 Revision</p>
+                <p className="font-mono text-[11px] text-text-muted mt-1 uppercase tracking-widest">Class 9 Science Study Guide</p>
               </div>
             </div>
 
@@ -1121,7 +1207,7 @@ export default function App() {
                 </h2>
                 
                 <p className="font-sans text-base md:text-lg text-text-muted max-w-lg leading-relaxed">
-                  Transform your NCERT revision into an engaging journey. Track your progress across Physics, Chemistry, and Biology, unlock achievements, and master concepts with precision.
+                  Transform your school studies into an engaging journey. Track your progress across Physics, Chemistry, and Biology, unlock achievements, and master concepts with precision.
                 </p>
 
                 {/* Feature Mini Bento */}
@@ -1245,15 +1331,16 @@ export default function App() {
                         className="space-y-4 text-left"
                       >
                         <div>
-                          <label className="block font-mono text-[10px] text-text-muted uppercase tracking-widest mb-1.5 font-bold">Full Name</label>
+                          <label className="block font-mono text-[10px] text-text-muted uppercase tracking-widest mb-1.5 font-bold">Original Name with Surname</label>
                           <input 
                             type="text" 
                             required
                             value={signUpName}
                             onChange={(e) => setSignUpName(e.target.value)}
                             className="w-full bg-surface-container-low border border-transparent rounded-xl px-4 py-3 focus:bg-white focus:ring-2 focus:ring-physics-deep-blue focus:border-transparent transition-all outline-none text-sm placeholder-text-muted/60"
-                            placeholder="Sarah Jenkins"
+                            placeholder="e.g. Mayank Chinthala"
                           />
+                          <p className="text-[10px] text-text-muted mt-1">Please register with your original name and surname.</p>
                         </div>
                         
                         <div>
@@ -1278,6 +1365,7 @@ export default function App() {
                             className="w-full bg-surface-container-low border border-transparent rounded-xl px-4 py-3 focus:bg-white focus:ring-2 focus:ring-physics-deep-blue focus:border-transparent transition-all outline-none text-sm placeholder-text-muted/60"
                             placeholder="••••••••"
                           />
+                          <p className="text-[10px] text-text-muted mt-1">Must be at least 8 characters, with 1 uppercase, 1 lowercase, and 1 special symbol.</p>
                         </div>
 
                         <div>
@@ -1342,7 +1430,7 @@ export default function App() {
                           <span className="material-symbols-outlined text-text-muted text-xl">info</span>
                           <div>
                             <p className="font-mono text-[10px] font-bold text-physics-deep-blue uppercase tracking-wider">Status: <span className="text-chemistry-amber">Pending Admin Approval</span></p>
-                            <p className="text-[10px] text-text-muted">SARAH JENKINS & MARCUS PATEL have matching requests seeded.</p>
+                            <p className="text-[10px] text-text-muted">Please contact your course administrator for immediate access.</p>
                           </div>
                         </div>
 
@@ -1382,9 +1470,9 @@ export default function App() {
                 <Menu className="w-6 h-6" />
               </button>
               
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-physics-deep-blue text-3xl">rocket_launch</span>
-                <span className="font-hanken text-xl font-extrabold text-physics-deep-blue tracking-tight leading-none">Study Odyssey</span>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="material-symbols-outlined text-physics-deep-blue text-2xl sm:text-3xl">rocket_launch</span>
+                <span className="font-hanken text-base sm:text-xl font-extrabold text-physics-deep-blue tracking-tight leading-none hidden min-[480px]:inline">Study Odyssey</span>
               </div>
             </div>
 
@@ -1412,11 +1500,11 @@ export default function App() {
             </div>
 
             {/* Header Right Actions */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-3">
               {/* Night Theme Toggle */}
               <button 
                 onClick={() => setIsDark(!isDark)}
-                className="p-2 rounded-full hover:bg-surface-container-low transition-colors text-text-muted hover:text-physics-deep-blue relative"
+                className="p-1.5 sm:p-2 rounded-full hover:bg-surface-container-low transition-colors text-text-muted hover:text-physics-deep-blue relative"
                 title={isDark ? "Switch to Light Theme" : "Switch to Night Theme"}
               >
                 {isDark ? <Sun className="w-5 h-5 text-chemistry-amber" /> : <Moon className="w-5 h-5" />}
@@ -1425,7 +1513,7 @@ export default function App() {
               {/* Help Center Shortcut */}
               <button 
                 onClick={() => setShowHelp(true)}
-                className="p-2 rounded-full hover:bg-surface-container-low transition-colors text-text-muted hover:text-physics-deep-blue relative group"
+                className="p-1.5 sm:p-2 rounded-full hover:bg-surface-container-low transition-colors text-text-muted hover:text-physics-deep-blue relative group hidden sm:block"
                 title="Help Center"
               >
                 <HelpCircle className="w-5 h-5" />
@@ -1435,7 +1523,7 @@ export default function App() {
               <div className="relative">
                 <button 
                   onClick={() => setShowNotifications(!showNotifications)}
-                  className="p-2 rounded-full hover:bg-surface-container-low transition-colors text-text-muted hover:text-physics-deep-blue relative"
+                  className="p-1.5 sm:p-2 rounded-full hover:bg-surface-container-low transition-colors text-text-muted hover:text-physics-deep-blue relative"
                 >
                   <Bell className="w-5 h-5" />
                   <span className="absolute top-1 right-1 w-2 h-2 bg-error-rose rounded-full"></span>
@@ -1480,13 +1568,13 @@ export default function App() {
               {/* Settings / Restorer button */}
               <button 
                 onClick={() => setShowSettings(!showSettings)}
-                className="p-2 rounded-full hover:bg-surface-container-low transition-colors text-text-muted hover:text-physics-deep-blue"
+                className="p-1.5 sm:p-2 rounded-full hover:bg-surface-container-low transition-colors text-text-muted hover:text-physics-deep-blue hidden sm:block"
               >
                 <Settings className="w-5 h-5" />
               </button>
 
               {/* User Avatar & Profile details */}
-              <div className="flex items-center gap-2 border-l border-surface-container pl-3 ml-1">
+              <div className="flex items-center gap-1.5 sm:gap-2 border-l border-surface-container pl-1.5 sm:pl-3 ml-0.5 sm:ml-1">
                 <div className="w-8 h-8 rounded-full overflow-hidden border border-outline-variant shadow-sm bg-surface-container flex items-center justify-center text-xs font-mono font-bold text-physics-deep-blue">
                   <img 
                     alt="User profile avatar" 
@@ -1954,19 +2042,27 @@ export default function App() {
                               Interactive Active Recall Challenge
                             </h4>
                             <p className="text-xs text-text-muted mt-1 leading-relaxed">
-                              Ready to test your comprehension? Revise the exact Class 9 NCERT curriculum questions.
+                              Ready to test your comprehension? Revise the exact Class 9 study curriculum questions.
                             </p>
                           </div>
-                          <button 
-                            onClick={() => startChapterQuiz(activeChapter)}
-                            className={`px-5 py-2.5 rounded-full font-mono text-xs font-bold uppercase tracking-wider text-white shadow-sm hover:shadow-md transition-all flex items-center gap-1 shrink-0
-                              ${activeTab === 'biology' ? 'bg-biology-leaf-green hover:bg-secondary' : 
-                                activeTab === 'physics' ? 'bg-physics-deep-blue hover:bg-primary-container' : 
-                                'bg-chemistry-amber hover:bg-tertiary-container'}`}
-                          >
-                            Start Unit Quiz
-                            <span className="material-symbols-outlined text-[16px]">quiz</span>
-                          </button>
+                          <div className="flex flex-col sm:flex-row gap-2 shrink-0 w-full md:w-auto">
+                            <button 
+                              onClick={() => startChapterQuiz(activeChapter)}
+                              className={`px-5 py-2.5 rounded-full font-mono text-xs font-bold uppercase tracking-wider text-white shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-1 shrink-0
+                                ${activeTab === 'biology' ? 'bg-biology-leaf-green hover:bg-secondary' : 
+                                  activeTab === 'physics' ? 'bg-physics-deep-blue hover:bg-primary-container' : 
+                                  'bg-chemistry-amber hover:bg-tertiary-container'}`}
+                            >
+                              Start Unit Quiz
+                              <span className="material-symbols-outlined text-[16px]">quiz</span>
+                            </button>
+                            <button 
+                              onClick={() => startGrandTest(activeChapter.subject)}
+                              className="px-5 py-2.5 rounded-full font-mono text-xs font-bold uppercase tracking-wider text-white bg-slate-800 hover:bg-slate-900 shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-1 shrink-0"
+                            >
+                              🏆 Start Grand Test
+                            </button>
+                          </div>
                         </div>
                       </div>
 
@@ -2026,6 +2122,12 @@ export default function App() {
                         >
                           Start Chapter Quiz
                         </button>
+                        <button 
+                          onClick={() => startGrandTest(activeChapter.subject)}
+                          className="w-full py-2.5 rounded-full font-mono text-[11px] font-bold uppercase tracking-wider text-white mt-2 shadow-sm transition-all flex items-center justify-center gap-1 bg-slate-800 hover:bg-slate-900"
+                        >
+                          🏆 Start Subject Grand Test
+                        </button>
                       </div>
 
                     </div>
@@ -2047,7 +2149,7 @@ export default function App() {
                   >
                     <div>
                       <h1 className="font-hanken text-3xl font-extrabold text-text-main tracking-tight">Active recall Glossary</h1>
-                      <p className="text-xs text-text-muted mt-1">Review standard definitions for Class 9 NCERT terminologies quickly.</p>
+                      <p className="text-xs text-text-muted mt-1">Review standard definitions for Class 9 science terminologies quickly.</p>
                     </div>
 
                     {/* Filter and Search box */}
@@ -2642,7 +2744,7 @@ export default function App() {
               
               <div className="space-y-4 text-xs font-sans text-text-main leading-relaxed overflow-y-auto max-h-96 pr-2">
                 <p>
-                  Welcome to <strong>Study Odyssey</strong>, an educational platform carefully aligned with the NCERT Class 9 Science curriculum.
+                  Welcome to <strong>Study Odyssey</strong>, an educational platform carefully aligned with the Class 9 Science curriculum.
                 </p>
                 
                 <div className="p-3 bg-[#f7f9fb] rounded-xl border border-surface-container">
@@ -2667,7 +2769,7 @@ export default function App() {
                 </div>
 
                 <p className="text-[10px] text-text-muted italic border-t pt-3">
-                  Study Odyssey NCERT revision engine v1.4.0. Built with Antigravity AI Code developer.
+                  Study Odyssey comprehensive revision engine v1.4.0. Built with Antigravity AI Code developer.
                 </p>
               </div>
 
